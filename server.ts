@@ -1,7 +1,10 @@
 import { createServer } from 'http'
-import { createYoga } from 'graphql-yoga'
+import { createYoga, createPubSub } from 'graphql-yoga'
 import SchemaBuilder from "@pothos/core";
 import WithInputPlugin from "@pothos/plugin-with-input";
+import SmartSubscriptionsPlugin, {
+    subscribeOptionsFromIterator,
+} from '@pothos/plugin-smart-subscriptions';
 
 type CartItem = {
     id: string;
@@ -15,6 +18,8 @@ type Cart = {
     items?: CartItem[];
 };
 
+const pubsub = createPubSub();
+
 const builder = new SchemaBuilder<{
     Objects: {
         Cart: Cart;
@@ -24,10 +29,15 @@ const builder = new SchemaBuilder<{
         ID: { Input: string; Output: string };
     };
 }>({
-    plugins: [WithInputPlugin],
+    plugins: [WithInputPlugin, SmartSubscriptionsPlugin],
+    smartSubscriptions: {
+        ...subscribeOptionsFromIterator((name, context) => {
+            return pubsub.subscribe(name);
+        }),
+    },
 });
 
-const CARTS = [
+let CARTS = [
     { id: "1", items: [{ id: "1", name: "My item", price: 1000, quantity: 1 }] },
 ];
 
@@ -87,6 +97,9 @@ builder.queryType({
                 id: t.arg.id({ required: true }),
             },
             type: "Cart",
+            smartSubscription: true,
+            subscribe: (subscriptions, root, args, ctx, info) =>
+                void subscriptions.register('item-added'),
             resolve: (_, { id }) => {
                 const cart = CARTS.find((c) => c.id === id);
 
@@ -112,20 +125,23 @@ builder.mutationType({
             },
             type: "Cart",
             resolve: (_, { input: { cartId, ...input } }) => {
-                const cart = CARTS.find((c) => c.id === cartId);
+                let cart = CARTS.find((c) => c.id === cartId);
 
                 if (!cart) {
                     throw new Error(`No cart with ID: ${cartId}`);
                 }
 
-                return {
-                    id: cartId,
-                    items: [...cart?.items, input],
-                };
+                cart.items = [...cart?.items, input as CartItem];
+
+                pubsub.publish('item-added', input);
+
+                return cart
             },
         }),
     }),
 });
+
+builder.subscriptionType();
 
 const yoga = createYoga({ schema: builder.toSchema() })
 
