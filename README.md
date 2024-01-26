@@ -1,6 +1,6 @@
-# pothos subscription demo
+# pothos smart subscription plugin demo
 
-Shows how to implement queries, mutations and subscriptions with pothos schema and yoga graphql server.
+Shows how to implement queries, mutations and subscriptions with pothos smart subscription plugin and yoga graphql server.
 It does not work with Cloudflare workerd because it uses setTimeout() such that the callback may be invoked outside the Request context. Not easy to fix IMHO.
 
 If setTimeout() is polyfilled such that a 0 debounceDelay is ignored, then another problem surfaces: a mutation request may trigger a subscription response within the context of the request. Cloudflare's workerd implementation does not allow I/O to cross request boundaries.
