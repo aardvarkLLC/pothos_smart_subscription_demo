@@ -5,6 +5,7 @@ import WithInputPlugin from "@pothos/plugin-with-input";
 import SmartSubscriptionsPlugin, {
     subscribeOptionsFromIterator,
 } from '@pothos/plugin-smart-subscriptions';
+import { printSchema } from 'graphql';
 
 type CartItem = {
     id: string;
@@ -143,7 +144,10 @@ builder.mutationType({
 
 builder.subscriptionType();
 
-const yoga = createYoga({ schema: builder.toSchema() })
+const schema = builder.toSchema();
+console.log(`schema: ${printSchema(schema)}`);
+
+const yoga = createYoga({ schema: schema })
 
 const server = createServer(yoga)
 server.listen(4000, () => {
